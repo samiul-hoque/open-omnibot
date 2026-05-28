@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omni-2 Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="theme.js"></script>
+    <script>Theme.init();</script>
+    <link rel="stylesheet" href="aegis.css">
+    <!-- highlight.js theme — swapped at runtime by docs.js based on theme -->
+    <link id="hljs-theme" rel="stylesheet" href="vendor/highlight-dark.css" disabled>
+    <!-- KaTeX (math rendering for docs viewer) -->
+    <link rel="stylesheet" href="vendor/katex/katex.min.css">
+    <style>
+        /* ===== Right sidebar density — compress the telemetry column so
+           every card (joystick → logging) fits without vertical scroll. ===== */
+        .sidebar-right { gap: 5px; }
+        .sidebar-right .card,
+        .sidebar-right .card-glass { padding: 8px 10px; }
+        .sidebar-right .card h2 {
+            margin-bottom: 4px;
+            padding-bottom: 3px;
+            font-size: 0.68em;
+        }
+        .sidebar-right .sensor-row { padding: 1px 0; font-size: 0.82em; }
+        .joystick-card { gap: 4px; }
+
+        /* ===== Joystick row (rotate buttons flanking the stick) ===== */
+        .joystick-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            width: 100%;
+        }
+        .rotate-btn {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            border: 2px solid var(--ak-accent);
+            background: var(--ak-surface-l2);
+            color: var(--ak-accent);
+            font-family: var(--font-heading, sans-serif);
+            font-weight: 700;
+            font-size: 18px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+            transition: background 0.05s, color 0.05s, transform 0.05s;
+            /* Tuck against the joystick's upper arc. The joystick canvas is
+               170 × 170 with a circular stick drawn inside, so the square
+               corners are empty — pull the buttons inward to sit snug
+               against the visible circle. */
+            margin-top: 6px;
+        }
+        .rotate-btn-l { margin-right: -14px; }
+        .rotate-btn-r { margin-left: -14px; }
+        .rotate-btn:hover { background: var(--ak-surface-l1); }
+
+        /* ===== System warning banner (IMU stuck, etc.) ===== */
+        #sys-warning-banner {
+            display: none;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 10px 16px;
+            background: #c23b2a;
+            color: #fff;
+            font-family: var(--font-heading, sans-serif);
+            font-weight: 600;
+            font-size: 0.9em;
+            text-align: center;
+            border-bottom: 2px solid #7a1f14;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        #sys-warning-banner.active { display: block; }
+        #sys-warning-banner .hint {
+            font-weight: 400;
+            opacity: 0.92;
+            margin-left: 8px;
+        }
+        .rotate-btn:active,
+        .rotate-btn.active {
+            background: var(--ak-accent);
+            color: var(--ak-bg-deep);
+            transform: scale(0.95);
+        }
+        .rotate-btn:focus-visible { outline: 2px solid var(--ak-accent); outline-offset: 2px; }
+
+        /* ===== Experiments panel ===== */
+        .experiments-panel { margin-top: 8px; padding: 10px 12px; }
+        .exp-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+        .exp-header h2 { margin: 0; font-size: 1em; }
+        .exp-status {
+            font-family: var(--font-body, monospace); font-size: 0.78em;
+            padding: 2px 8px; border-radius: 3px; text-transform: uppercase;
+            background: var(--ak-surface-l1); color: var(--ak-text-muted);
+        }
+        .exp-status[data-state="armed"] { background: var(--ak-warning); color: var(--ak-bg-deep); }
+        .exp-status[data-state="running"] { background: var(--ak-accent); color: var(--ak-bg-deep); }
+        .exp-status[data-state="awaiting_ground_truth"] { background: var(--ak-success); color: var(--ak-bg-deep); }
+        .exp-status[data-state="aborted"] { background: var(--ak-error); color: #fff; }
+        .exp-form-grid {
+            display: grid; gap: 8px;
+            grid-template-columns: 1.4fr 1fr 0.6fr;
+            margin-bottom: 6px;
+        }
+        .exp-field { display: flex; flex-direction: column; gap: 2px; font-size: 0.82em; color: var(--ak-text-muted); }
+        .exp-field > span { font-size: 0.78em; }
+        .exp-field select, .exp-field input {
+            background: var(--ak-surface-l1); color: var(--ak-text);
+            border: 1px solid var(--ak-border); border-radius: 3px;
+            padding: 4px 6px; font-size: 0.9em;
+        }
+        .exp-field-full { margin-bottom: 8px; }
+        .exp-field input:disabled, .exp-field select:disabled { opacity: 0.5; cursor: not-allowed; }
+        .exp-buttons { display: flex; gap: 6px; margin-top: 8px; }
+        .exp-buttons button { flex: 1; }
+        .exp-progress { margin: 6px 0; }
+        .exp-gt {
+            margin-top: 10px; padding: 10px; border: 2px solid var(--ak-warning);
+            border-radius: 4px; background: var(--ak-pill-warning-bg);
+            animation: exp-gt-pulse 1.6s ease-in-out infinite;
+            box-shadow: 0 0 12px rgba(245,158,11,0.35);
+        }
+        @keyframes exp-gt-pulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.25); }
+            50%      { box-shadow: 0 0 18px rgba(245,158,11,0.55); }
+        }
+        .exp-gt-header {
+            display: flex; justify-content: space-between; align-items: baseline;
+            margin-bottom: 8px; gap: 8px;
+        }
+        .exp-gt h3 { margin: 0; font-size: 0.95em; color: var(--ak-warning); }
+        .exp-gt-timer {
+            font-family: var(--font-body, monospace); font-size: 0.85em;
+            color: var(--ak-warning); font-variant-numeric: tabular-nums;
+        }
+        .exp-gt-prompt {
+            font-size: 0.82em; color: var(--ak-text); margin-bottom: 8px;
+            line-height: 1.35;
+        }
+        .exp-gt-grid { display: grid; gap: 6px; grid-template-columns: repeat(3, 1fr); margin-bottom: 6px; }
+        .exp-gt-grid label { display: flex; flex-direction: column; font-size: 0.78em; color: var(--ak-text-muted); }
+        .exp-gt-grid input {
+            background: var(--ak-surface-l2); color: var(--ak-text);
+            border: 1px solid var(--ak-border); border-radius: 3px;
+            padding: 3px 5px; font-size: 0.88em;
+        }
+        .exp-gt-grid input.exp-gt-missing {
+            border-color: var(--ak-error);
+            box-shadow: 0 0 4px rgba(239,68,68,0.5);
+        }
+        .exp-gt-passfail { display: flex; gap: 12px; font-size: 0.82em; margin: 6px 0; }
+        .exp-gt-error {
+            font-size: 0.8em; color: var(--ak-error); min-height: 1.2em;
+            margin-top: 4px;
+        }
+        .exp-gt-buttons { display: flex; gap: 6px; margin-top: 8px; }
+        .exp-gt-buttons .btn-primary { flex: 2; }
+        .exp-gt-buttons .btn-stop { flex: 1; font-size: 0.78em; }
+        .exp-history { margin-top: 10px; border-top: 1px solid var(--ak-border); padding-top: 6px; }
+        .exp-history-header {
+            display: flex; justify-content: space-between;
+            font-size: 0.82em; color: var(--ak-text-muted); margin-bottom: 4px;
+        }
+        .exp-history-list {
+            max-height: 120px; overflow-y: auto;
+            font-family: var(--font-body, monospace); font-size: 0.78em;
+        }
+        .exp-history-row {
+            display: flex; gap: 8px; padding: 3px 0;
+            border-bottom: 1px solid var(--ak-border);
+        }
+        .exp-history-row:last-child { border-bottom: none; }
+        .exp-history-row .exp-h-traj { flex: 1.8; color: var(--ak-text); }
+        .exp-history-row .exp-h-speed,
+        .exp-history-row .exp-h-tier,
+        .exp-history-row .exp-h-rep { color: var(--ak-text-muted); }
+        .exp-history-row .exp-h-status { font-weight: 600; }
+        .exp-history-pass .exp-h-status { color: var(--ak-success); }
+        .exp-history-fail .exp-h-status { color: var(--ak-error); }
+        .exp-history-aborted .exp-h-status { color: var(--ak-warning); }
+        .exp-history-empty {
+            color: var(--ak-text-muted); font-style: italic;
+            text-align: center; padding: 10px 0; font-size: 0.82em;
+        }
+    </style>
+</head>
+<body>
+
+<!-- System-level warning banner, populated by dashboard.js when firmware
+     raises a sticky fault (e.g. IMU stuck-read watchdog). -->
+<div id="sys-warning-banner" role="alert" aria-live="polite">
+    <span id="sys-warning-text">⚠ System warning</span>
+    <span class="hint" id="sys-warning-hint"></span>
+</div>
+
+<!-- ===== TopAppBar ===== -->
+<header id="top-bar">
+    <div class="brand">Command Center</div>
+    <div class="uplink-status">
+        <span class="status-dot" id="conn-dot"></span>
+        <span id="conn-label">UPLINK: OFFLINE</span>
+    </div>
+    <button class="btn-docs" id="docs-btn" title="Documentation" aria-label="Open documentation">Docs</button>
+    <button class="btn-theme" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">☾</button>
+    <button class="btn-estop" id="estop-btn">E-STOP</button>
+</header>
+
+<!-- ===== SideNavBar ===== -->
+<nav id="side-nav">
+    <div class="nav-unit-info">
+        <div class="unit-name" id="unit-name">OMNI-2</div>
+        <div class="unit-firmware" id="unit-firmware">v--</div>
+    </div>
+    <ul class="nav-items">
+        <li class="nav-item active" data-view="dashboard">Dashboard</li>
+        <li class="nav-item" data-view="calibration">Calibration</li>
+        <li class="nav-item" data-view="diagnostics">Diagnostics</li>
+        <li class="nav-item" data-view="docs">Docs</li>
+    </ul>
+    <div class="nav-footer">
+        <div>
+            <label style="display:block;margin-bottom:4px;">Tier <span style="color:var(--ak-text-muted);font-size:0.8em;">(0/1/2 to switch)</span></label>
+            <div id="tier-pills" role="group" aria-label="Tier selector"
+                 style="display:flex;width:100%;border:1px solid var(--ak-border);border-radius:4px;overflow:hidden;">
+                <button type="button" class="tier-pill" data-tier="0"
+                        title="Tier 0 — open-loop (hardcoded PWM table, no feedback)">0 · Open</button>
+                <button type="button" class="tier-pill" data-tier="1"
+                        title="Tier 1 — dead reckoning (encoders only)">1 · Enc</button>
+                <button type="button" class="tier-pill" data-tier="2"
+                        title="Tier 2 — encoder + IMU fusion">2 · IMU</button>
+            </div>
+        </div>
+        <div id="imu-weight-row" style="display:none;">
+            <label>IMU Weight</label>
+            <input type="range" id="imu-weight" min="0" max="100" value="98">
+            <span id="imu-weight-val" style="font-size:0.9em;">0.98</span>
+        </div>
+        <label class="demo-toggle">
+            <input type="checkbox" id="demo-mode"> Demo
+        </label>
+    </div>
+</nav>
+
+<!-- ===== Main Content ===== -->
+<main id="content">
+
+    <!-- ========== DASHBOARD VIEW ========== -->
+    <section class="view active" id="view-dashboard">
+        <div class="dashboard-grid">
+            <!-- Map Area -->
+            <div class="map-area">
+                <div class="map-header">
+                    <h2>Trajectory Map</h2>
+                    <div class="layer-toggles" id="d-layer-toggles">
+                        <label class="layer-toggle"><input type="checkbox" data-layer="deadReckoning" checked><span class="layer-swatch" style="background:#f59e0b;"></span>Dead Reckoning</label>
+                        <label class="layer-toggle"><input type="checkbox" data-layer="imuFusion"><span class="layer-swatch" style="background:#10b981;"></span>IMU Fusion</label>
+                    </div>
+                </div>
+                <div class="map-container">
+                    <canvas id="d-map-canvas"></canvas>
+                    <!-- Orientation compass (tier 2+) — overlaid inside
+                         the map, tucked below the x/y axis circle that
+                         the map itself draws in the top-left corner.
+                         Hidden in tier 1. -->
+                    <div class="orientation-area" id="d-orientation-area" style="display:none;">
+                        <canvas id="d-orientation-canvas" width="80" height="80"></canvas>
+                        <span id="d-imu-yaw-big">--</span>
+                    </div>
+                </div>
+
+                <div class="map-controls">
+                    <button class="btn-secondary" id="d-zoom-in">Zoom +</button>
+                    <button class="btn-secondary" id="d-zoom-out">Zoom -</button>
+                    <button class="btn-secondary" id="d-clear-trail">Clear Trail</button>
+                    <button class="btn-secondary" id="d-center">Center</button>
+                    <span style="flex:1;"></span>
+                    <div class="grid-config">
+                        <label>Grid:</label>
+                        <input type="number" id="d-grid-w" step="0.1" min="0.5" max="10" value="2.50">
+                        <span>x</span>
+                        <input type="number" id="d-grid-h" step="0.1" min="0.5" max="10" value="2.50">
+                        <button class="btn-secondary" id="d-apply-grid">Apply</button>
+                    </div>
+                </div>
+
+                <!-- ===== Experiments panel (below map controls) ===== -->
+                <div class="card experiments-panel" id="d-exp-panel">
+                    <div class="exp-header">
+                        <h2>Experiments</h2>
+                        <span class="exp-status" id="d-exp-status">idle</span>
+                    </div>
+
+                    <div class="exp-form-grid">
+                        <label class="exp-field">
+                            <span>Trajectory</span>
+                            <select id="d-exp-trajectory">
+                                <option value="straight_2m">Straight 2 m</option>
+                                <option value="circle_0_5m_strafe">Circle r=0.5 m (strafe)</option>
+                                <option value="square_0m8_rotate">Square 0.8 m (rotate)</option>
+                                <option value="square_0m8_strafe">Square 0.8 m (strafe)</option>
+                            </select>
+                        </label>
+                        <label class="exp-field">
+                            <span>Speed</span>
+                            <select id="d-exp-speed">
+                                <option value="0.10">0.10 m/s</option>
+                                <option value="0.15" selected>0.15 m/s</option>
+                                <option value="0.20">0.20 m/s</option>
+                                <option value="0.25">0.25 m/s</option>
+                                <option value="0.30">0.30 m/s</option>
+                            </select>
+                        </label>
+                        <label class="exp-field exp-field-narrow">
+                            <span>Rep</span>
+                            <input type="number" id="d-exp-rep" min="1" max="99" value="1">
+                        </label>
+                    </div>
+
+                    <label class="exp-field exp-field-full">
+                        <span>Notes</span>
+                        <input type="text" id="d-exp-notes" placeholder="Optional operator notes...">
+                    </label>
+
+                    <!-- Demo mode: off-grid visual demo. Skips ArUco preflight,
+                         CSV/meta logging, mid-path snapshot pauses, and the
+                         post-run GT step. Keep unchecked for experimental runs. -->
+                    <label class="exp-field exp-field-full" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                        <input type="checkbox" id="d-exp-demo" style="width:auto;margin:0;">
+                        <span style="flex:1;">
+                            Demo mode
+                            <span style="color:var(--ak-text-muted);font-weight:normal;font-size:0.85em;">
+                                — run off-grid, no snapshots, no logging, no mid-path stops
+                            </span>
+                        </span>
+                    </label>
+
+                    <!-- Tier-0 + demo warning. Open-loop tier normally relies on
+                         per-waypoint GT to enforce a workspace-bounds envelope;
+                         demo strips those pauses, so nothing auto-stops the robot
+                         if firmware over/undershoots. ABORT button + spacebar E-STOP
+                         stay armed. Toggled by _updateDemoWarning(). -->
+                    <div id="d-exp-demo-warning" style="display:none;margin-top:8px;
+                            padding:8px 10px;border:1px solid var(--ak-warning, #f59e0b);
+                            border-radius:4px;background:rgba(245,158,11,0.1);
+                            font-size:0.85em;color:var(--ak-text);">
+                        <strong style="color:var(--ak-warning, #f59e0b);">⚠ Tier 0 + Demo:</strong>
+                        open-loop with no bounds guard and no mid-path stops. Keep ABORT
+                        / spacebar E-STOP in reach and give the robot clear floor space.
+                    </div>
+
+                    <div class="exp-progress" id="d-exp-progress" style="display:none;">
+                        <div class="bar-bg"><div class="bar-fill" id="d-exp-progress-bar" style="width:0%;background:var(--ak-accent);"></div></div>
+                        <div id="d-exp-progress-text" style="font-size:0.8em;color:var(--ak-text-muted);margin-top:3px;">Segment 1</div>
+                    </div>
+
+                    <!-- Start-position hint, visible only in the armed state -->
+                    <div class="exp-place-hint" id="d-exp-place-hint" style="display:none;
+                            margin-top:8px;padding:8px 10px;border:1px solid var(--ak-accent);
+                            border-radius:4px;background:rgba(59,130,246,0.08);
+                            font-size:0.85em;color:var(--ak-text);">
+                        <div style="font-weight:600;margin-bottom:4px;color:var(--ak-accent);">
+                            Place the robot before Start
+                        </div>
+                        <div id="d-exp-place-hint-text"></div>
+                    </div>
+
+                    <!-- Preflight status — toggled by experiment_preflight_{ok,failed}
+                         broadcasts. Starts as a neutral "running" indicator while
+                         the snapshot await is in flight; flips to green on ok,
+                         red on failed. Stays visible until re-arm or abort so the
+                         operator can read the rejection reason. -->
+                    <div id="d-exp-preflight-status" style="display:none;margin-top:8px;
+                            padding:8px 10px;border-radius:4px;font-size:0.85em;"></div>
+
+                    <div class="exp-buttons">
+                        <button class="btn-primary" id="d-exp-arm">ARM</button>
+                        <button class="btn-primary" id="d-exp-start" disabled>START</button>
+                        <button class="btn-stop" id="d-exp-abort" disabled>ABORT</button>
+                    </div>
+
+                    <!-- Post-run ground-truth form (visible only in awaiting_ground_truth) -->
+                    <div class="exp-gt" id="d-exp-gt" style="display:none;">
+                        <div class="exp-gt-header">
+                            <h3>Measure end pose from grid</h3>
+                            <span class="exp-gt-timer" id="d-exp-gt-timer">00:00</span>
+                        </div>
+                        <div class="exp-gt-prompt">
+                            Measure the robot's end pose. Either hit <em>Capture</em> to use
+                            the overhead camera (auto-fills below) or type the values in
+                            manually — the run is dropped from the analysis if you skip it.
+                        </div>
+                        <div class="exp-gt-capture" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                            <button class="btn-primary" id="d-exp-gt-capture" type="button">Capture with camera</button>
+                            <span class="exp-gt-capture-status" id="d-exp-gt-capture-status" style="font-size:0.85em;color:var(--ak-text-muted);"></span>
+                        </div>
+                        <div class="exp-gt-preview" id="d-exp-gt-preview" style="display:none;margin-bottom:8px;">
+                            <a id="d-exp-gt-preview-link" target="_blank" rel="noopener">
+                                <img id="d-exp-gt-preview-img" alt="snapshot preview"
+                                     style="max-width:100%;border:1px solid var(--ak-border);border-radius:4px;">
+                            </a>
+                            <div class="exp-gt-preview-meta" id="d-exp-gt-preview-meta"
+                                 style="font-size:0.78em;color:var(--ak-text-muted);margin-top:4px;"></div>
+                        </div>
+                        <div class="exp-gt-grid">
+                            <label><span>x (cm)</span><input type="number" id="d-exp-gt-x" step="0.1" placeholder="e.g. 200" required></label>
+                            <label><span>y (cm)</span><input type="number" id="d-exp-gt-y" step="0.1" placeholder="e.g. 3" required></label>
+                            <label><span>θ (°)</span><input type="number" id="d-exp-gt-theta" step="0.1" placeholder="e.g. 0" required></label>
+                        </div>
+                        <div class="exp-gt-passfail">
+                            <label><input type="radio" name="d-exp-pf" value="pass" checked> Pass</label>
+                            <label><input type="radio" name="d-exp-pf" value="fail"> Fail (explain in notes)</label>
+                        </div>
+                        <label class="exp-field exp-field-full">
+                            <span>Notes</span>
+                            <input type="text" id="d-exp-gt-notes" placeholder="Required if Fail; optional otherwise">
+                        </label>
+                        <div class="exp-gt-error" id="d-exp-gt-error"></div>
+                        <div class="exp-gt-buttons">
+                            <button class="btn-primary" id="d-exp-gt-save">Save &amp; Return</button>
+                            <button class="btn-stop" id="d-exp-gt-discard" title="Drop this run from the campaign">Discard run</button>
+                        </div>
+                    </div>
+
+                    <!-- Session run history -->
+                    <div class="exp-history">
+                        <div class="exp-history-header">
+                            <span>Session history</span>
+                            <span id="d-exp-history-count" style="color:var(--ak-text-muted);font-size:0.8em;">0</span>
+                        </div>
+                        <div class="exp-history-list" id="d-exp-history-list">
+                            <div class="exp-history-empty">No runs yet.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar: Joystick + Telemetry -->
+            <div class="sidebar-right">
+                <div class="card-glass joystick-card">
+                    <div class="joystick-row">
+                        <button class="rotate-btn rotate-btn-l" id="d-rotate-left" title="Rotate CCW (hold)" aria-label="Rotate left">L</button>
+                        <canvas id="d-joystick-canvas" width="170" height="170"></canvas>
+                        <button class="rotate-btn rotate-btn-r" id="d-rotate-right" title="Rotate CW (hold)" aria-label="Rotate right">R</button>
+                    </div>
+                    <!-- Speed/turn bounds set from motion_sweep_experiment.mjs results
+                         (2026-04-15): linear capped at 0.30 m/s to stay below IK
+                         saturation under combined strafe+rotate at MAX_WHEEL_SPEED=12;
+                         turn capped at 1.00 rad/s for the same reason. Lower bound 0.05
+                         is where motor stiction starts to matter. -->
+                    <div style="display:flex;gap:8px;width:100%;margin-top:8px;">
+                        <div style="flex:1;">
+                            <div style="display:flex;justify-content:space-between;font-size:0.72em;color:var(--ak-text-muted);"><span>Speed</span><span id="d-speed-val">0.15</span></div>
+                            <input type="range" id="d-speed" min="5" max="30" value="15" style="width:100%;accent-color:var(--ak-accent);">
+                        </div>
+                        <div style="flex:1;">
+                            <div style="display:flex;justify-content:space-between;font-size:0.72em;color:var(--ak-text-muted);"><span>Turn</span><span id="d-turn-val">0.30</span></div>
+                            <input type="range" id="d-turn" min="5" max="100" value="30" style="width:100%;accent-color:var(--ak-accent);">
+                        </div>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.75em;color:var(--ak-text-muted);margin-top:8px;cursor:pointer;">
+                        <input type="checkbox" id="d-heading-hold" style="accent-color:var(--ak-accent);">
+                        <span>Heading hold <span style="opacity:0.6;">(cancels yaw drift during strafe via IMU)</span></span>
+                    </label>
+                </div>
+
+                <!-- Pose -->
+                <div class="card">
+                    <h2>Pose</h2>
+                    <div class="sensor-row"><span class="sensor-label">X</span><span class="sensor-value" id="d-pose-x">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Y</span><span class="sensor-value" id="d-pose-y">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Theta</span><span class="sensor-value" id="d-pose-theta">--</span></div>
+                </div>
+
+                <!-- Wheel Velocities -->
+                <div class="card">
+                    <h2>Velocities (rad/s)</h2>
+                    <div class="sensor-row"><span class="sensor-label">L1 / R1</span><span class="sensor-value" id="d-vel-front">-- / --</span></div>
+                    <div class="sensor-row"><span class="sensor-label">R2 / L2</span><span class="sensor-value" id="d-vel-rear">-- / --</span></div>
+                </div>
+
+                <!-- Encoders -->
+                <div class="card">
+                    <h2>Encoders</h2>
+                    <div class="sensor-row"><span class="sensor-label">L1 / R1</span><span class="sensor-value" id="d-enc-front">-- / --</span></div>
+                    <div class="sensor-row"><span class="sensor-label">R2 / L2</span><span class="sensor-value" id="d-enc-rear">-- / --</span></div>
+                </div>
+
+                <!-- IMU (tier 2+) -->
+                <div class="card" id="d-imu-card" style="display:none;">
+                    <h2>IMU</h2>
+                    <div class="sensor-row"><span class="sensor-label">Yaw</span><span class="sensor-value" id="d-imu-yaw">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Pitch</span><span class="sensor-value" id="d-imu-pitch">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Roll</span><span class="sensor-value" id="d-imu-roll">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Gyro Z</span><span class="sensor-value" id="d-imu-gz">--</span></div>
+                    <div class="sensor-row">
+                        <span class="sensor-label">Cal</span>
+                        <span class="sensor-value">
+                            <span class="cal-dot cal-0" id="d-cal-sys"></span>S
+                            <span class="cal-dot cal-0" id="d-cal-gyro"></span>G
+                            <span class="cal-dot cal-0" id="d-cal-accel"></span>A
+                            <span class="cal-dot cal-0" id="d-cal-mag"></span>M
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Command -->
+                <div class="card">
+                    <h2>Command</h2>
+                    <div class="sensor-row"><span class="sensor-label">vx</span><span class="sensor-value" id="d-cmd-vx">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">vy</span><span class="sensor-value" id="d-cmd-vy">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">omega</span><span class="sensor-value" id="d-cmd-w">--</span></div>
+                </div>
+
+                <!-- Logging -->
+                <div class="card">
+                    <h2>Logging</h2>
+                    <div class="sensor-row"><span class="sensor-label">Rows</span><span class="sensor-value" id="d-log-rows">--</span></div>
+                </div>
+
+                <!-- Robot Heap — free and session-low-water mark.
+                     Long downward drift on `Min` is a slow leak;
+                     a transient dip is an expected large allocation
+                     (e.g. multi-waypoint trajectory upload). -->
+                <div class="card">
+                    <h2>Robot Heap</h2>
+                    <div class="sensor-row"><span class="sensor-label">Free</span><span class="sensor-value" id="d-heap-free">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Min (boot)</span><span class="sensor-value" id="d-heap-min">--</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Footer -->
+        <div class="dashboard-footer">
+            <!-- Teleop WASD reference — hidden during experiments
+                 (setExpState) so it doesn't overlap preflight /
+                 place-hint / GT messages at the bottom of the map
+                 column. -->
+            <div class="keyboard-help" id="d-keyboard-help">
+                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move
+                <kbd>Q</kbd><kbd>E</kbd> Rotate
+                <kbd>Space</kbd> Stop
+            </div>
+            <div class="action-buttons">
+                <button class="btn-stop" id="d-stop-btn">STOP</button>
+                <button class="btn-secondary" id="d-reset-btn">RESET</button>
+                <button class="btn-secondary" id="d-zero-imu-btn">Zero IMU</button>
+                <button class="btn-secondary" id="d-robot-ip-btn">Robot IP</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== CALIBRATION VIEW ========== -->
+    <section class="view" id="view-calibration">
+        <div class="cal-banner" id="c-cal-banner">CALIBRATION MODE ACTIVE &mdash; PID loop bypassed, direct motor control</div>
+        <div class="calibration-grid">
+            <!-- Left: IMU Diagnostics + Motor Cal -->
+            <div>
+                <div class="card" id="c-imu-panel">
+                    <h2>IMU Diagnostics</h2>
+                    <div class="sensor-row"><span class="sensor-label">Yaw</span><span class="sensor-value" id="c-imu-yaw">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Pitch</span><span class="sensor-value" id="c-imu-pitch">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Roll</span><span class="sensor-value" id="c-imu-roll">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Gyro Z</span><span class="sensor-value" id="c-imu-gz">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Accel X</span><span class="sensor-value" id="c-imu-ax">--</span></div>
+                    <div class="sensor-row"><span class="sensor-label">Accel Y</span><span class="sensor-value" id="c-imu-ay">--</span></div>
+                    <div class="sensor-row" style="margin-top:8px;">
+                        <span class="sensor-label">Calibration</span>
+                        <span class="sensor-value">
+                            <span class="cal-dot cal-0" id="c-cal-sys"></span>S
+                            <span class="cal-dot cal-0" id="c-cal-gyro"></span>G
+                            <span class="cal-dot cal-0" id="c-cal-accel"></span>A
+                            <span class="cal-dot cal-0" id="c-cal-mag"></span>M
+                        </span>
+                    </div>
+                    <div class="cal-guidance" id="c-cal-guidance" style="display:none;"></div>
+                    <div class="imu-actions">
+                        <button class="btn-secondary" id="c-btn-zero-imu">Zero IMU</button>
+                        <button class="btn-secondary" id="c-btn-save-cal">Save Cal</button>
+                        <button class="btn-secondary" id="c-btn-load-cal">Load Cal</button>
+                    </div>
+                </div>
+
+                <!-- Motor Calibration Panel -->
+                <div class="card" style="margin-top:10px;" id="c-motor-cal-panel">
+                    <h2>Motor Calibration</h2>
+                    <div style="font-size:0.8em;color:var(--ak-text-muted);margin-bottom:8px;">
+                        Per-motor per-direction encoder gain correction.
+                    </div>
+                    <div class="gains-grid">
+                        <span></span><span class="gains-header">Fwd</span><span class="gains-header">Rev</span>
+                        <span class="sensor-label">L1</span><span class="sensor-value" id="c-gf-0">1.0000</span><span class="sensor-value" id="c-gr-0">1.0000</span>
+                        <span class="sensor-label">R1</span><span class="sensor-value" id="c-gf-1">1.0000</span><span class="sensor-value" id="c-gr-1">1.0000</span>
+                        <span class="sensor-label">R2</span><span class="sensor-value" id="c-gf-2">1.0000</span><span class="sensor-value" id="c-gr-2">1.0000</span>
+                        <span class="sensor-label">L2</span><span class="sensor-value" id="c-gf-3">1.0000</span><span class="sensor-value" id="c-gr-3">1.0000</span>
+                    </div>
+                    <div id="c-mcal-progress" style="display:none;margin-top:8px;">
+                        <div class="bar-bg"><div class="bar-fill" id="c-mcal-bar" style="width:0%;background:var(--ak-accent);"></div></div>
+                        <div id="c-mcal-progress-text" style="font-size:0.8em;color:var(--ak-text-muted);margin-top:3px;">Starting...</div>
+                    </div>
+                    <div id="c-mcal-result" style="display:none;margin-top:8px;">
+                        <div class="cal-guidance" id="c-mcal-result-text"></div>
+                    </div>
+                    <div class="imu-actions" style="margin-top:10px;">
+                        <button class="btn-primary" id="c-btn-auto-cal">Auto-Calibrate</button>
+                        <button class="btn-secondary" id="c-btn-save-mcal">Save</button>
+                        <button class="btn-secondary" id="c-btn-load-mcal">Load</button>
+                    </div>
+                    <details class="manual-override">
+                        <summary>Manual Override</summary>
+                        <div class="manual-inputs">
+                            <span></span><span class="gains-header">Fwd</span><span class="gains-header">Rev</span>
+                            <span style="font-size:0.85em;color:var(--ak-text-muted);">L1</span>
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mf-0">
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mr-0">
+                            <span style="font-size:0.85em;color:var(--ak-text-muted);">R1</span>
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mf-1">
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mr-1">
+                            <span style="font-size:0.85em;color:var(--ak-text-muted);">R2</span>
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mf-2">
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mr-2">
+                            <span style="font-size:0.85em;color:var(--ak-text-muted);">L2</span>
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mf-3">
+                            <input type="number" step="0.001" min="0.8" max="1.2" value="1.000" id="c-mr-3">
+                        </div>
+                        <button class="btn-secondary" id="c-btn-set-mcal" style="margin-top:6px;width:100%;">Apply Manual Gains</button>
+                    </details>
+                </div>
+
+                <!-- Tier-0 Open-Loop Calibration Panel.
+
+                     Tier 0 drives motors from a fixed 6-direction PWM
+                     table without PID or IK. To execute a commanded
+                     distance, the firmware needs a calibrated speed
+                     (m/s for translate, rad/s for yaw) for each of
+                     the six directions. Procedure:
+
+                       1. Set base PWM (60–200; conservative start 100).
+                       2. For each direction, click "Drive 3s". Robot
+                          executes the direction at the chosen PWM for
+                          3 seconds.
+                       3. Measure the displacement (tape or camera).
+                          Type cm (linear) or degrees (yaw) into the
+                          "measured" column.
+                       4. Click Save — server computes m/s / rad/s per
+                          direction and sends set_openloop_cal to NVS.
+
+                     Until all six are populated, tier-0 load_trajectory
+                     will reject with openloop_load_failed. -->
+                <div class="card" style="margin-top:10px;" id="c-ol-cal-panel">
+                    <h2>Tier-0 Open-Loop Calibration</h2>
+                    <div style="font-size:0.8em;color:var(--ak-text-muted);margin-bottom:8px;">
+                        Per-direction PWM→speed calibration for the tier-0 baseline.
+                        Drive each direction, measure the displacement, save.
+                    </div>
+                    <div class="sensor-row">
+                        <span class="sensor-label">Status</span>
+                        <span class="sensor-value" id="c-ol-status">unknown</span>
+                    </div>
+                    <div class="sensor-row" style="margin-top:4px;">
+                        <label for="c-ol-pwm" class="sensor-label">Base PWM</label>
+                        <input type="number" id="c-ol-pwm" min="30" max="255" value="100"
+                               style="width:70px;">
+                    </div>
+                    <div class="sensor-row" style="margin-top:4px;">
+                        <label for="c-ol-dur" class="sensor-label">Drive duration (s)</label>
+                        <input type="number" id="c-ol-dur" min="0.1" max="10" step="0.1" value="0.7"
+                               style="width:70px;">
+                    </div>
+                    <!-- 6-direction table. Each row has: drive button,
+                         measured-displacement input (cm for linear,
+                         degrees for yaw — server converts), computed
+                         speed readout. -->
+                    <table style="margin-top:10px;width:100%;border-collapse:collapse;font-size:0.85em;">
+                        <thead>
+                            <tr style="color:var(--ak-text-muted);font-weight:600;">
+                                <th style="text-align:left;padding:4px 6px;">Dir</th>
+                                <th style="text-align:center;padding:4px 6px;">Drive</th>
+                                <th style="text-align:right;padding:4px 6px;">Measured</th>
+                                <th style="text-align:right;padding:4px 6px;">Speed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="c-ol-rows">
+                            <!-- Rows injected by calibration.js initOpenloopCalPanel() -->
+                        </tbody>
+                    </table>
+                    <div class="imu-actions" style="margin-top:10px;">
+                        <button class="btn-primary" id="c-btn-ol-save">Save Open-Loop Cal</button>
+                        <button class="btn-secondary" id="c-btn-ol-refresh">Refresh State</button>
+                        <button class="btn-secondary" id="c-btn-ol-autocal"
+                                title="Place robot at (0,0) facing +X. Drives all 6 directions in pairs (fwd↔back, strafe-L↔R, yaw CCW↔CW) using the overhead camera to measure displacement + rotation.">
+                            Auto-Cal (camera)
+                        </button>
+                    </div>
+                    <div id="c-ol-autocal-status" style="font-size:0.8em;color:var(--ak-text-muted);margin-top:6px;"></div>
+                    <div style="font-size:0.75em;color:var(--ak-text-muted);margin-top:4px;">
+                        Place robot at (0, 0) facing +X before clicking Auto-Cal. Each direction drives once and reads the overhead camera.
+                    </div>
+                    <div class="cal-guidance" id="c-ol-guidance" style="display:none;margin-top:8px;"></div>
+                </div>
+
+                <!-- Ground-Truth Camera Panel -->
+                <div class="card" style="margin-top:10px;" id="c-gt-cam-panel">
+                    <h2>Ground-Truth Camera</h2>
+                    <div style="font-size:0.8em;color:var(--ak-text-muted);margin-bottom:8px;">
+                        Overhead phone camera homography. Re-calibrate after moving the phone.
+                    </div>
+                    <div class="sensor-row">
+                        <span class="sensor-label">Calibrated</span>
+                        <span class="sensor-value" id="c-gt-cal-at">—</span>
+                    </div>
+                    <div class="sensor-row">
+                        <span class="sensor-label">Reproj p50</span>
+                        <span class="sensor-value" id="c-gt-cal-p50">—</span>
+                    </div>
+                    <div class="sensor-row">
+                        <span class="sensor-label">Reproj p95</span>
+                        <span class="sensor-value" id="c-gt-cal-p95">—</span>
+                    </div>
+                    <div class="sensor-row">
+                        <span class="sensor-label">Inliers</span>
+                        <span class="sensor-value" id="c-gt-cal-inliers">—</span>
+                    </div>
+                    <div class="cal-guidance" id="c-gt-cal-status" style="display:none;margin-top:8px;"></div>
+                    <div class="imu-actions" style="margin-top:10px;">
+                        <button class="btn-primary" id="c-btn-gt-calibrate">Recalibrate</button>
+                        <button class="btn-secondary" id="c-btn-gt-refresh">Refresh</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Motor Diagnostics -->
+            <div>
+                <div class="card" id="c-motor-panel">
+                    <h2>Motor Diagnostics</h2>
+                    <div class="motor-cards" id="c-motor-cards">
+                        <!-- Generated by calibration.js -->
+                    </div>
+                    <div class="uniformity-section">
+                        <h2 style="margin-top:12px;">Run All &amp; Compare</h2>
+                        <div class="uniformity-controls">
+                            <span class="sensor-label">PWM:</span>
+                            <input type="range" id="c-uniformity-pwm" min="-255" max="255" value="128" style="flex:1;accent-color:var(--ak-accent);">
+                            <span id="c-uniformity-pwm-val" style="width:36px;text-align:right;">128</span>
+                            <button class="btn-primary" id="c-uniformity-start">Start</button>
+                            <button class="btn-stop" id="c-uniformity-stop">Stop</button>
+                        </div>
+                        <div id="c-uniformity-bars">
+                            <!-- Generated by calibration.js -->
+                        </div>
+                        <div id="c-uniformity-summary" style="font-size:0.82em;color:var(--ak-text-muted);margin-top:6px;"></div>
+                    </div>
+                    <button class="btn-stop" id="c-stop-all" style="margin-top:12px;width:100%;">Stop All Motors</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== DIAGNOSTICS VIEW ========== -->
+    <section class="view" id="view-diagnostics">
+        <div class="diagnostics-grid">
+            <!-- Robot Info -->
+            <div class="card">
+                <h2>Robot Info</h2>
+                <div class="info-grid">
+                    <span class="info-label">Firmware</span><span class="info-value" id="g-info-firmware">--</span>
+                    <span class="info-label">Uptime</span><span class="info-value" id="g-info-uptime">--</span>
+                    <span class="info-label">IP</span><span class="info-value" id="g-info-ip">--</span>
+                    <span class="info-label">MAC</span><span class="info-value" id="g-info-mac">--</span>
+                    <span class="info-label">Free Heap</span><span class="info-value" id="g-info-heap">--</span>
+                    <span class="info-label">IMU</span><span class="info-value" id="g-info-imu">--</span>
+                </div>
+            </div>
+
+            <!-- WiFi Diagnostics -->
+            <div class="card">
+                <h2>WiFi Diagnostics</h2>
+                <div class="sensor-row"><span class="sensor-label">SSID</span><span class="sensor-value" id="g-wifi-ssid">--</span></div>
+                <div class="sensor-row"><span class="sensor-label">RSSI</span><span class="sensor-value" id="g-wifi-rssi">--</span></div>
+                <div class="bar-bg"><div class="bar-fill" id="g-rssi-bar" style="width:0%;background:var(--ak-error);"></div></div>
+                <div class="sparkline-container"><canvas id="g-rssi-sparkline"></canvas></div>
+            </div>
+
+            <!-- Latency & Clock Sync -->
+            <div class="card">
+                <h2>Latency &amp; Clock Sync</h2>
+                <div style="margin-bottom:8px;">
+                    <div class="sync-row"><span class="cal-dot cal-3"></span><span class="sensor-label">Browser</span><span style="font-size:0.82em;">OS synced (ref)</span></div>
+                    <div class="sync-row"><span class="cal-dot cal-3"></span><span class="sensor-label">Server</span><span style="font-size:0.82em;">OS synced</span></div>
+                    <div class="sync-row"><span class="cal-dot cal-0" id="g-robot-sync-dot"></span><span class="sensor-label">Robot</span><span id="g-robot-sync-text" style="font-size:0.82em;">Waiting...</span></div>
+                </div>
+                <div class="sensor-row"><span class="sensor-label">Server offset</span><span class="sensor-value" id="g-offset-server">--</span></div>
+                <div class="sensor-row"><span class="sensor-label">Robot offset</span><span class="sensor-value" id="g-offset-robot">--</span></div>
+
+                <h2 style="margin-top:12px;">Full Roundtrip</h2>
+                <div class="latency-value" id="g-lat-rt-val">-- ms</div>
+                <div class="latency-grid">
+                    <span class="sensor-label">Min</span><span class="sensor-value" id="g-lat-rt-min">--</span>
+                    <span class="sensor-label">Avg</span><span class="sensor-value" id="g-lat-rt-avg">--</span>
+                    <span class="sensor-label">Max</span><span class="sensor-value" id="g-lat-rt-max">--</span>
+                </div>
+                <div class="sparkline-container"><canvas id="g-lat-rt-sparkline"></canvas></div>
+
+                <h2 style="margin-top:10px;">Per-Hop</h2>
+                <div class="hop-row"><span class="hop-label">Browser &rarr; Server</span><span class="hop-value" id="g-hop-bs">--</span></div>
+                <div class="hop-row"><span class="hop-label">Server &rarr; Robot</span><span class="hop-value" id="g-hop-sr">--</span></div>
+                <div class="hop-row"><span class="hop-label">Robot &rarr; Server</span><span class="hop-value" id="g-hop-rs">--</span></div>
+                <div class="hop-row"><span class="hop-label">Server &rarr; Browser</span><span class="hop-value" id="g-hop-sb">--</span></div>
+
+                <h2 style="margin-top:10px;">Sensor Pipeline</h2>
+                <div class="latency-value" id="g-lat-sp-val">-- ms</div>
+                <div class="latency-grid">
+                    <span class="sensor-label">Min</span><span class="sensor-value" id="g-lat-sp-min">--</span>
+                    <span class="sensor-label">Avg</span><span class="sensor-value" id="g-lat-sp-avg">--</span>
+                    <span class="sensor-label">Max</span><span class="sensor-value" id="g-lat-sp-max">--</span>
+                </div>
+                <div class="sparkline-container"><canvas id="g-lat-sp-sparkline"></canvas></div>
+
+                <div class="latency-controls">
+                    <button class="btn-primary" id="g-lat-auto-btn">Auto Ping</button>
+                    <button class="btn-secondary" id="g-lat-manual-btn">Ping Once</button>
+                    <button class="btn-secondary" id="g-lat-reset-btn">Reset</button>
+                </div>
+            </div>
+
+            <!-- Debug Log -->
+            <div class="card">
+                <h2>Debug Log</h2>
+                <div class="log-output" id="g-log-output"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== DOCS VIEW ========== -->
+    <section class="view" id="view-docs">
+        <div class="docs-layout">
+            <!-- Sidebar: category tree + search -->
+            <aside class="docs-sidebar">
+                <div class="docs-search-wrap">
+                    <input type="search" id="docs-search" class="docs-search" placeholder="Search docs..." aria-label="Search docs" autocomplete="off">
+                    <div class="docs-search-results" id="docs-search-results" hidden></div>
+                </div>
+                <nav class="docs-tree" id="docs-tree" aria-label="Documentation">
+                    <div class="docs-loading">Loading…</div>
+                </nav>
+            </aside>
+
+            <!-- Main content pane -->
+            <article class="docs-content" id="docs-content">
+                <div class="docs-loading">Select a doc from the sidebar.</div>
+            </article>
+
+            <!-- Right TOC pane -->
+            <aside class="docs-toc" id="docs-toc" aria-label="On this page">
+                <div class="docs-toc-title">On this page</div>
+                <ul class="docs-toc-list" id="docs-toc-list"></ul>
+            </aside>
+        </div>
+
+        <!-- Source citation preview modal -->
+        <div class="modal-overlay" id="docs-source-modal">
+            <div class="modal-box docs-source-box">
+                <h3 id="docs-source-title">Source</h3>
+                <pre class="docs-source-pre"><code id="docs-source-code" class="hljs"></code></pre>
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="docs-source-close">Close</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ===== Modals ===== -->
+<div class="modal-overlay" id="d-robot-ip-modal">
+    <div class="modal-box">
+        <h3>Robot Connection</h3>
+        <label style="font-size:0.85em;color:var(--ak-text-muted);">Robot IP Address:</label>
+        <input type="text" id="d-robot-ip-input" placeholder="192.168.x.x">
+        <div id="d-robot-ip-status" style="font-size:0.82em;color:var(--ak-text-muted);"></div>
+        <div class="modal-actions">
+            <button class="btn-primary" id="d-robot-ip-connect">Connect</button>
+            <button class="btn-secondary" id="d-robot-ip-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<!-- View modules (ES modules — deferred by default, import their deps) -->
+<script type="module" src="dashboard.js"></script>
+<script type="module" src="calibration.js"></script>
+<script type="module" src="diagnostics.js"></script>
+<!-- Docs viewer dependencies (vendored, see vendor/README.md) -->
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/highlight.min.js"></script>
+<script src="vendor/katex/katex.min.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

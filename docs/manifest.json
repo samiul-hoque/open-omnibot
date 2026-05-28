@@ -1,0 +1,143 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": 1,
+  "categories": [
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "description": "Setup, calibration, and what to do when things go wrong.",
+      "docs": [
+        {
+          "title": "Quick Start",
+          "path": "docs/getting-started.md",
+          "summary": "30-minute walkthrough from unboxing to driving the robot."
+        },
+        {
+          "title": "Calibration Guide",
+          "path": "docs/calibration.md",
+          "summary": "Step-by-step IMU, encoder, and UWB calibration procedures."
+        },
+        {
+          "title": "Troubleshooting",
+          "path": "docs/troubleshooting.md",
+          "summary": "Common failure modes and how to fix them."
+        }
+      ]
+    },
+    {
+      "id": "hardware",
+      "title": "Hardware",
+      "description": "Physical components, wiring, and chassis.",
+      "docs": [
+        {
+          "title": "Components",
+          "path": "docs/hardware/00-components.md",
+          "summary": "User-facing reference: what each part does, how it connects, why it was chosen."
+        },
+        {
+          "title": "Hardware README",
+          "path": "hardware/README.md",
+          "summary": "Directory layout, BOM pointer, and the canonical pinout table."
+        }
+      ]
+    },
+    {
+      "id": "firmware-architecture",
+      "title": "Firmware Architecture",
+      "description": "How the firmware actually works — algorithms, war stories, and tuning notes.",
+      "docs": [
+        {
+          "title": "Motor Control",
+          "path": "docs/architecture/10-motor-control.md",
+          "summary": "Slew limiter, mecanum kinematics, feedforward + PID, axis remap."
+        },
+        {
+          "title": "Motor Calibration",
+          "path": "docs/architecture/11-motor-calibration.md",
+          "summary": "Why dead reckoning curved before calibration, the state machine, and gain normalization."
+        },
+        {
+          "title": "Encoders",
+          "path": "docs/architecture/12-encoders.md",
+          "summary": "PCNT setup, 16-bit overflow detection, glitch filter, gain application."
+        },
+        {
+          "title": "Diagnostics & Debug Tooling",
+          "path": "docs/architecture/40-diagnostics.md",
+          "summary": "Why each diagnostic panel exists and the bug it was added to catch."
+        },
+        {
+          "title": "Dead Reckoning",
+          "path": "docs/architecture/50-dead-reckoning.md",
+          "summary": "Tier 1 odometry: encoder counts → world-frame pose, with the rotation-noise heuristic."
+        }
+      ]
+    },
+    {
+      "id": "localization",
+      "title": "Localization",
+      "description": "Theory and design of the three localization tiers.",
+      "docs": [
+        {
+          "title": "Overview",
+          "path": "localization/README.md",
+          "summary": "The three-tier approach: dead reckoning, fusion, EKF."
+        },
+        {
+          "title": "Tier 1 — Odometry",
+          "path": "localization/tier1-odometry.md",
+          "summary": "Mathematical derivation of mecanum dead reckoning."
+        },
+        {
+          "title": "Tier 2 — Sensor Fusion",
+          "path": "localization/tier2-fusion.md",
+          "summary": "Complementary filter combining encoders and IMU heading."
+        },
+        {
+          "title": "Tier 3 — Extended Kalman Filter",
+          "path": "localization/tier3-ekf.md",
+          "summary": "EKF design fusing encoders, IMU, and UWB ranges."
+        },
+        {
+          "title": "Methods Overview",
+          "path": "docs/localization-methods.md",
+          "summary": "Comparison of available localization techniques."
+        },
+        {
+          "title": "Methods Explained",
+          "path": "docs/localization-methods-explained.md",
+          "summary": "In-depth walkthrough of each method with diagrams."
+        }
+      ]
+    },
+    {
+      "id": "user-interface",
+      "title": "User Interface",
+      "description": "The web dashboard, design system, and per-control inventory.",
+      "docs": [
+        {
+          "title": "UI Inventory",
+          "path": "docs/ui-inventory.md",
+          "summary": "Catalog of every interface element, control, and data field in the dashboard."
+        },
+        {
+          "title": "Aegis Design System",
+          "path": "docs/aegis-design-system.md",
+          "summary": "Design tokens, layout patterns, and extension guide for the UI."
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "title": "API & Protocol",
+      "description": "WebSocket and HTTP interfaces.",
+      "docs": [
+        {
+          "title": "API Reference",
+          "path": "docs/api-reference.md",
+          "summary": "Server WebSocket protocol and HTTP endpoints."
+        }
+      ]
+    }
+  ]
+}

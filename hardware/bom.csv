@@ -1,0 +1,19 @@
+Category,Part,Description,Quantity,Unit Price,Total,Sourcing Link,Notes
+Compute,ESP32 DevKit,MH ET LIVE ESP32 MiniKit,1,,,TODO,Main controller; chosen for compact form factor and integrated WiFi
+Compute,GPIO Expander,MCP23017 (I2C address 0x20),1,,,TODO,Frees ESP32 GPIO by handling motor direction + standby pins over I2C
+Drivetrain,DC Geared Motor with Encoder,DC motor + 42:1 metal gearbox with quadrature encoder (13 PPR),4,,,TODO,Metal gearbox; specific model TODO confirm
+Drivetrain,Mecanum Wheel,80mm diameter mecanum wheel (40mm radius),4,,,TODO,Two left-handed + two right-handed for standard mecanum layout
+Drivetrain,Motor Driver,TB6612FNG dual H-bridge,2,,,TODO,Drives 4 motors total (2 per chip); MOSFET-based; lower drop than L298N; PWM in from ESP32 LEDC, direction pins from MCP23017, V_motor = 12V from buck
+Sensors,IMU,BNO055 9-DOF (I2C address 0x29),1,,,TODO,Mounted upside-down — firmware applies axis remap; chosen for onboard sensor fusion
+Localization,UWB Tag,DWM1001-DEV,1,,,TODO,Mounted on robot; connects to server over USB serial (not ESP32)
+Localization,UWB Anchor,DWM1001-DEV,4,,,TODO,Mounted at room corners; configured via PANS shell
+Power,Battery,20V cordless drill battery (Li-ion),1,,,TODO,Slide-on dock; ~1h runtime on 5Ah pack; built-in protection circuitry
+Power,Primary Buck,300W step-down 20V → 12V,1,,,TODO,Sized for motor stall current; feeds TB6612FNG V_motor
+Power,Logic Buck (5V),5V step-down 12V → 5V,1,,,TODO,Supplies ESP32 5V pin
+Power,Logic Buck (3.3V),3.3V step-down 12V → 3.3V,1,,,TODO,Supplies MCP23017 + BNO055
+Power,Cooling Fan,Silenx 40mm fan,1,,,TODO,Forced-air cooling for the 300W buck under sustained load
+Power,Power Switch,SPST toggle,1,,,TODO,Battery main disconnect (top deck)
+Chassis,Base Plate,3D printed (PLA or PETG) — see cad/,1,,,See cad/,STL TODO not yet committed
+Chassis,Motor Mounts,3D printed bracket per motor — see cad/,4,,,See cad/,STL TODO not yet committed
+Chassis,Mounting Hardware,M3 screws + nuts assortment,1,,,Amazon/AliExpress,
+Wiring,Jumper Wires,Male-female assortment,1 set,,,,

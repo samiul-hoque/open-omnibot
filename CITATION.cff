@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+title: "Open Omnibot: An Open-Source Mecanum Mobile-Robot Platform"
+message: "If you use Open Omnibot in your research, please cite it using the metadata in this file."
+type: software
+authors:
+  - given-names: Samiul
+    family-names: Hoque
+repository-code: "https://github.com/samiul-hoque/open-omnibot"
+url: "https://github.com/samiul-hoque/open-omnibot"
+license: MIT
+version: "1.0.0"
+date-released: "2026-05-29"
+keywords:
+  - mecanum
+  - mobile robot
+  - ESP32
+  - open-source hardware
+  - omnidirectional
+  - motor calibration
+  - PID
+  - BNO055
+  - quadrature encoder
+  - robotics platform

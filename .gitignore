@@ -1,0 +1,83 @@
+# =========================================================
+# Build / IDE
+# =========================================================
+.pio/
+.vscode/
+.idea/
+.devcontainer/local-*
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+coverage/
+htmlcov/
+.coverage
+
+# =========================================================
+# Python virtual environments
+# =========================================================
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# =========================================================
+# Local configuration overrides (NEVER commit)
+# =========================================================
+.env
+.env.local
+server/src/config.local.js
+firmware/esp32-omni/src/config.local.h
+platformio.local.ini
+
+# =========================================================
+# AI assistant configs (internal — keep out of public)
+# =========================================================
+.claude/
+CLAUDE.md
+**/CLAUDE.md
+
+# =========================================================
+# Forge-specific leftovers
+# =========================================================
+.gitlab-ci.yml
+.gitlab/
+
+# =========================================================
+# LaTeX intermediates
+# =========================================================
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.log
+_minted-*/
+texput.log
+
+# =========================================================
+# OS junk
+# =========================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+*:Zone.Identifier
+
+# =========================================================
+# Runtime logs
+# =========================================================
+*.log
+logs/
+server/logs/

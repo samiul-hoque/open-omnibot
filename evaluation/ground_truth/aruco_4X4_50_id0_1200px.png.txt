@@ -1,0 +1,15 @@
+aruco marker print spec
+-----------------------
+dict:     4X4_50 (cv2.aruco.DICT_4X4_50)
+id:       0
+side_px:  1200
+border:   1 module (OpenCV default; detector relies on this)
+polarity: black modules on white background (do NOT invert)
+commit:   a7f1aa7
+
+Print at 10 cm physical side on matte paper. Keep >= 5 mm white
+quiet zone around the marker. Do not laminate (specular glare
+kills detection).
+
+Detector must match: aruco_detector.py DEFAULTS['marker_id'] = 0
+and build_detector() DICT_4X4_50.
