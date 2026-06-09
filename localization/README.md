@@ -18,10 +18,11 @@ The localization system uses a tiered approach, from simple to complex:
 - **IMU (BNO055)** — Tier 2. Gyroscope + accelerometer only; the
   magnetometer is deliberately disabled (motor magnetic interference
   near the IMU mount).
-- **UWB (DWM1001)** — Planned for Tier 3. The reader, EKF fusion,
-  and anchor handling were removed from the runtime on 2026-04-14
-  pending validation of the lower tiers. The reference math is
-  documented here for future work.
+- **UWB (DWM1001)** — Deferred future work for Tier 3. The reader, EKF
+  fusion, and anchor handling were removed from the runtime on
+  2026-04-14. Planned re-integration is a range-domain EKF (raw
+  per-anchor distances, per-anchor calibration) — the reference math
+  here is a starting point, not a drop-in design.
 
 ## Directory Structure
 

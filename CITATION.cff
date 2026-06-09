@@ -1,15 +1,19 @@
 cff-version: 1.2.0
-title: "Open Omnibot: An Open-Source Mecanum Mobile-Robot Platform"
-message: "If you use Open Omnibot in your research, please cite it using the metadata in this file."
+message: "If you use this software, please cite it as below."
 type: software
+title: "Open Omnibot: An Open-Source Mecanum Mobile-Robot Platform"
 authors:
-  - given-names: Samiul
-    family-names: Hoque
-repository-code: "https://github.com/samiul-hoque/open-omnibot"
-url: "https://github.com/samiul-hoque/open-omnibot"
-license: MIT
+  - family-names: "Hoque"
+    given-names: "Samiul"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+  - family-names: "Mandal"
+    given-names: "Manash Kumar"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
 version: "1.0.0"
 date-released: "2026-05-29"
+url: "https://github.com/samiul-hoque/open-omnibot"
+repository-code: "https://github.com/samiul-hoque/open-omnibot"
+license: MIT
 keywords:
   - mecanum
   - mobile robot
@@ -21,3 +25,13 @@ keywords:
   - BNO055
   - quadrature encoder
   - robotics platform
+abstract: >-
+  An open-source four-wheel mecanum robot platform with automated
+  per-motor self-calibration, encoder/IMU localization, and a Node.js
+  control, dashboard, and experiment stack. Built for reproducible
+  low-cost indoor robotics experiments.
+# Authors above are the software/code contributors (deliberate
+# decision, 2026-06-10). After the IECON 2026 paper is accepted, add a
+# preferred-citation block (type: conference-paper) carrying the full
+# 5-author paper author list, final title, year, and DOI — paper
+# authorship and software authorship are recorded separately.

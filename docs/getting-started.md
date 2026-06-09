@@ -36,28 +36,12 @@ pio device monitor
 
 You should see "Open Omnibot Starting..." on successful boot.
 
-## Step 3: Configure UWB (5 min)
+> **Note:** UWB positioning is **not part of the current runtime** — it
+> was removed 2026-04-14 and is planned future work. Localization runs
+> on wheel encoders + IMU (Tiers 0–2). Do not set up DWM1001 anchors as
+> part of getting started.
 
-### Setup Anchors
-
-1. Place 4 DWM1001 modules at room corners
-2. Connect each to USB and configure as anchor:
-   ```
-   [Enter] [Enter]
-   nma
-   aps <x> <y> <z>
-   ```
-3. Record anchor positions for configuration
-
-### Setup Tag
-
-1. Connect the robot's DWM1001 module
-2. Configure as tag:
-   ```
-   nmt
-   ```
-
-## Step 4: Start Server (5 min)
+## Step 3: Start Server (5 min)
 
 ```bash
 cd server
@@ -65,30 +49,24 @@ cd server
 # Install dependencies
 npm install
 
-# Configure (edit .env or src/config.js)
-# - Set serial port for ESP32
-# - Set UWB anchor positions
+# Configure if needed (src/config.js)
 
 # Start server
 npm start
 ```
 
-## Step 5: Test Basic Motion
+## Step 4: Test Basic Motion
 
-With server running, test robot motion:
+With the server running, open the browser dashboard at
+`http://localhost:3000` and use the joystick, or use keyboard control in
+the server terminal (WASD + QE). The robot should respond immediately;
+watch the live pose on the 2D map.
 
-```bash
-# Using curl or a WebSocket client
-curl -X POST http://localhost:8080/command -d '{"vx": 0.1, "vy": 0, "omega": 0}'
-```
+## Step 5: Verify Localization
 
-Robot should move forward slowly.
-
-## Step 6: Verify Localization
-
-1. Check UWB ranges are being received
-2. Verify IMU readings in telemetry
-3. Compare position estimates to physical position
+1. Verify encoder counts and IMU readings in telemetry
+2. Compare position estimates to physical position (drive a known
+   distance, check the dashboard pose)
 
 ## Next Steps
 

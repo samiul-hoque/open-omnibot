@@ -1,259 +1,79 @@
 # API Reference
 
-Server API documentation for controlling the robot and accessing data.
+The system has two WebSocket links and no REST control API:
 
-## WebSocket API
-
-Connect to `ws://localhost:8080` (or configured port).
-
-### Events from Server
-
-#### `position`
-Current estimated robot position.
-
-```json
-{
-  "event": "position",
-  "data": {
-    "x": 1.234,
-    "y": 2.345,
-    "theta": 0.785,
-    "timestamp": 1234567890
-  }
-}
+```
+Browser dashboard ◂—— ws/http (:3000) ——▸ Node.js server ◂—— ws (robot :80/ws) ——▸ ESP32 robot
 ```
 
-#### `telemetry`
-Raw sensor data.
+All robot control flows through the server. The authoritative,
+maintained protocol description is the **Robot Protocol** section of
+the server architecture document (`server/ARCHITECTURE.md`); this page is a
+summary.
+
+## Server → Robot commands
 
 ```json
-{
-  "event": "telemetry",
-  "data": {
-    "encoders": [100, 102, 99, 101],
-    "imu": {
-      "ax": 0.01,
-      "ay": -0.02,
-      "az": 9.81,
-      "gx": 0.001,
-      "gy": 0.002,
-      "gz": 0.003
-    },
-    "uwb": [
-      {"anchor": 0, "range": 1.523},
-      {"anchor": 1, "range": 2.145}
-    ],
-    "timestamp": 1234567890
-  }
-}
-```
-
-#### `status`
-System status updates.
-
-```json
-{
-  "event": "status",
-  "data": {
-    "connected": true,
-    "battery": 85,
-    "mode": "running"
-  }
-}
-```
-
-### Events to Server
-
-#### `command`
-Send velocity command.
-
-```json
-{
-  "event": "command",
-  "data": {
-    "vx": 0.1,
-    "vy": 0.0,
-    "omega": 0.0
-  }
-}
+{"type": "cmd", "vx": 0.2, "vy": 0.0, "w": 0.1}
+{"type": "stop"}
+{"type": "reset_encoders"}
+{"type": "zero_imu"}
+{"type": "motor_test", "motor": 0, "pwm": 128}
+{"type": "get_info"}
+{"type": "save_imu_cal"}
+{"type": "load_imu_cal"}
+{"type": "start_motor_cal"}
+{"type": "save_motor_cal"}
+{"type": "load_motor_cal"}
+{"type": "set_motor_gains", "gainsFwd": [1,1,1,1], "gainsRev": [1,1,1,1]}
+{"type": "set_heading_hold", "enabled": true, "gain": 1.0, "deadzone": 0.03, "alpha": 0.3}
+{"type": "ping_cal", "ts": 123, "ts_server_fwd": 456}
 ```
 
 | Field | Type | Description | Unit |
 |-------|------|-------------|------|
-| vx | float | Forward velocity | m/s |
-| vy | float | Lateral velocity | m/s |
-| omega | float | Angular velocity | rad/s |
+| vx | float | Forward velocity (+X) | m/s |
+| vy | float | Lateral velocity (+Y = left) | m/s |
+| w | float | Angular velocity (+ = CCW) | rad/s |
 
-#### `stop`
-Emergency stop.
+Motors auto-stop after 500 ms without a command (firmware watchdog),
+and stop immediately on client disconnect. `motor_test` enters a
+calibration mode that bypasses the PID loop; it auto-clears after
+500 ms without a new `motor_test`.
 
-```json
-{
-  "event": "stop"
-}
-```
-
-#### `setMode`
-Change operating mode.
+## Robot → Server sensor broadcast (20 Hz)
 
 ```json
 {
-  "event": "setMode",
-  "data": {
-    "mode": "manual"
-  }
+  "type": "sensors",
+  "t": 123456,
+  "enc": [100, -100, -100, 100],
+  "vel": [1.2, -1.2, -1.2, 1.2],
+  "imu": {"yaw": 45.0, "pitch": 0.0, "roll": 0.0, "gz": 0.01, "ax": 0.0, "ay": 0.0},
+  "cal": {"sys": 3, "gyro": 3, "accel": 3, "mag": 3}
 }
 ```
 
-Modes: `manual`, `autonomous`, `calibration`
+| Field | Type | Unit | Notes |
+|-------|------|------|-------|
+| `t` | int | ms | Firmware monotonic clock (`millis()`) |
+| `enc` | int[4] | counts | Cumulative, **wire order `[L1, R1, R2, L2]`** |
+| `vel` | float[4] | rad/s | Instantaneous wheel velocity, same order |
+| `imu.yaw` | float | degrees | BNO055 Euler yaw (IMUPLUS mode, no magnetometer) |
+| `imu.gz` | float | rad/s | Gyro Z (yaw rate) |
+| `cal.*` | 0–3 | — | BNO055 calibration status per subsystem |
 
-## REST API
+The wire order `[L1, R1, R2, L2]` differs from the firmware's internal
+`[L1, R1, L2, R2]` order — see the index-order convention block in the
+server architecture document before touching anything that indexes
+these arrays.
 
-### GET /status
+## Browser ↔ Server
 
-Get system status.
-
-**Response:**
-```json
-{
-  "connected": true,
-  "uptime": 3600,
-  "battery": 85,
-  "mode": "manual",
-  "position": {
-    "x": 1.234,
-    "y": 2.345,
-    "theta": 0.785
-  }
-}
-```
-
-### GET /config
-
-Get current configuration.
-
-**Response:**
-```json
-{
-  "serialPort": "COM3",
-  "baudRate": 115200,
-  "anchors": [
-    {"id": 0, "x": 0, "y": 0, "z": 1.5},
-    {"id": 1, "x": 3, "y": 0, "z": 1.5}
-  ],
-  "ekfParams": {
-    "processNoise": 0.01,
-    "measurementNoise": 0.1
-  }
-}
-```
-
-### POST /config
-
-Update configuration.
-
-**Request:**
-```json
-{
-  "ekfParams": {
-    "processNoise": 0.02
-  }
-}
-```
-
-### POST /log/start
-
-Start data logging.
-
-**Request:**
-```json
-{
-  "filename": "experiment-001"
-}
-```
-
-**Response:**
-```json
-{
-  "status": "logging",
-  "filename": "experiment-001.csv"
-}
-```
-
-### POST /log/stop
-
-Stop data logging.
-
-**Response:**
-```json
-{
-  "status": "stopped",
-  "filename": "experiment-001.csv",
-  "duration": 60.5,
-  "samples": 6050
-}
-```
-
-### POST /calibrate/imu
-
-Start IMU calibration routine.
-
-**Response:**
-```json
-{
-  "status": "calibrating",
-  "message": "Keep robot stationary for 10 seconds"
-}
-```
-
-## Serial Protocol
-
-ESP32 communicates with server via serial (USB or UART).
-
-### Message Format
-
-JSON messages terminated with newline:
-
-```
-{"type":"telemetry","enc":[100,102,99,101],"imu":[0.01,-0.02,9.81,0.001,0.002,0.003]}\n
-```
-
-### Message Types
-
-#### Telemetry (ESP32 -> Server)
-```json
-{
-  "type": "telemetry",
-  "enc": [e1, e2, e3, e4],
-  "imu": [ax, ay, az, gx, gy, gz],
-  "uwb": [[anchor_id, range_mm], ...]
-}
-```
-
-#### Command (Server -> ESP32)
-```json
-{
-  "type": "cmd",
-  "vx": 0.1,
-  "vy": 0.0,
-  "omega": 0.0
-}
-```
-
-#### Stop (Server -> ESP32)
-```json
-{
-  "type": "stop"
-}
-```
-
-## Error Codes
-
-| Code | Description |
-|------|-------------|
-| 1001 | Serial port not found |
-| 1002 | Serial communication error |
-| 2001 | UWB module not responding |
-| 2002 | Invalid UWB data |
-| 3001 | Configuration error |
-| 3002 | Invalid command |
+The dashboard (`http://localhost:3000`) and calibration page
+(`/calibration.html`) talk to the server over WebSocket on the same
+port: joystick velocity commands, pose/sensor broadcasts (10 Hz),
+experiment-runner events (`experiment_tick`, `experiment_paused`), and
+passthrough of the calibration commands listed above. The server
+relays robot `ack` responses to all connected browsers so UI state
+stays in sync.

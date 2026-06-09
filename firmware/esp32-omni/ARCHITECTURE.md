@@ -254,16 +254,17 @@ HTTP OTA stops all motors on upload start, flashes via ESP32 `Update` library, a
   Ground IMU experiments trace this to asymmetric wheel grip between
   robot sides (Q@0.3 rad/s achieves 102% of commanded yaw vs E@−0.3
   rad/s at 88%; same 16% asymmetry shows up as yaw during translation).
-  User is reprinting the chassis with adjustable motor heights as of
-  2026-04-15 — see `evaluation/experiments/baseline_pre_chassis_reprint/`
-  for frozen pre-rework data to compare against.
+  A chassis reprint with adjustable motor heights was completed in
+  April 2026 to address this.
 
 **Not yet done:**
 - Full Tier 2 (heading *tracking*, not just rate-null): the current
   heading-hold drives gyro_z → 0 but doesn't return to a reference
   heading after a disturbance. A yaw-integral term or a yaw-angle
   setpoint loop would give absolute heading tracking.
-- UWB / Tier 3 EKF: removed from the runtime earlier.
+- UWB / Tier 3 EKF: removed from the runtime on 2026-04-14; planned
+  re-integration as future work is a range-domain EKF with per-anchor
+  calibration.
 
 ## Code Style
 

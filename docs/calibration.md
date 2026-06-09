@@ -1,5 +1,13 @@
 # Calibration Guide
 
+> **Note:** this is generic background material. The calibration systems
+> actually used on this robot are: the **automated per-motor gain
+> calibration state machine** (`docs/architecture/11-motor-calibration.md`,
+> runs from the dashboard calibration page) and the **dashboard
+> calibration/diagnostics page** (`docs/architecture/40-diagnostics.md`).
+> The IMU's internal calibration is handled by the BNO055 in IMUPLUS mode.
+> UWB calibration sections below apply to planned future work only.
+
 Proper calibration is essential for accurate localization.
 
 ## IMU Calibration

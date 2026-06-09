@@ -56,6 +56,10 @@ Common issues and solutions.
 
 ## UWB Issues
 
+> **[NOT CURRENTLY ACTIVE]** UWB was removed from the runtime
+> 2026-04-14; re-integration is planned future work. This section is
+> retained for the bench-characterization phase of that work.
+
 ### No Range Measurements
 
 **Symptoms**: UWB data not received
@@ -94,9 +98,12 @@ Common issues and solutions.
 
 **Solutions**:
 1. Check wiring (SDA, SCL, power)
-2. Verify I2C address (0x68 or 0x69 for MPU6050)
+2. Verify I2C address (0x29 for the BNO055 as wired on this robot)
 3. Add pull-up resistors if needed
 4. Check voltage levels (3.3V vs 5V)
+5. BNO055 stuck-read lockup: firmware watchdog latches after ~1 s of
+   bit-identical gyro reads — power cycle required (software reset is
+   not sufficient)
 
 ### Drifting Heading
 

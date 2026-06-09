@@ -167,7 +167,7 @@ Server proxies `motor_test`, `get_info`, `save_imu_cal`, `load_imu_cal`, `start_
 
 ## Deferred Work
 
-- **UWB + tier-3 EKF**: removed from the runtime on 2026-04-14. The DWM1001 UWB reader, EKF fusion, anchor positioning, and related WebSocket/UI surfaces were partial implementations. Planned to return once the encoder-only and complementary-filter tiers are validated per the thesis experimental protocol. Re-introducing it will require: a fresh UWB reader, full EKF Jacobian, anchor calibration UI, and updates to the tier selector and logging columns.
+- **UWB + tier-3 EKF**: removed from the runtime on 2026-04-14. The DWM1001 UWB reader, EKF fusion, anchor positioning, and related WebSocket/UI surfaces were partial implementations. Do not resurrect the old code path as-is — the planned re-integration is a **range-domain** EKF (fusing raw per-anchor distances with per-anchor bias calibration, not the DWM1001's onboard position output). Re-introducing it will require: a fresh UWB reader (raw ranges), a range-measurement Jacobian, anchor calibration, and updates to the tier selector and logging columns.
 
 ## Testing
 

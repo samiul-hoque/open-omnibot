@@ -83,7 +83,9 @@ node evaluation/scripts/motion_sweep_experiment.mjs \
   --lin-speeds 0.05,0.10,0.20 --ang-speeds 0.20,0.40,0.80
 ```
 
-**Baseline reference**: `evaluation/experiments/baseline_pre_chassis_reprint/motion_sweep_stand.*`.
+**Baseline reference**: baseline runs captured on the reference robot
+are not distributed in this repository — capture your own baseline
+before making chassis or motor changes.
 
 ### `ground_imu_experiment.mjs`
 
@@ -97,7 +99,9 @@ node evaluation/scripts/ground_imu_experiment.mjs \
   --heading-hold both
 ```
 
-**Baseline reference**: `evaluation/experiments/baseline_pre_chassis_reprint/ground_imu_5s_hh_both.json`.
+**Baseline reference**: baseline runs captured on the reference robot
+are not distributed in this repository — capture your own baseline
+before making chassis or motor changes.
 
 ### `strafe_debug_experiment.mjs`
 
