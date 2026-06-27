@@ -8,6 +8,7 @@
 #include "openloop_executor.h"
 #include "self_test.h"
 #include "pid_controller.h"
+#include "control_page.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <ESPAsyncWebServer.h>
@@ -973,9 +974,16 @@ void initWebSocket() {
         String ip = wifiApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
         html += "<p>WebSocket endpoint: ws://" + ip + "/ws</p>";
         html += "<p>Connected clients: " + String(ws.count()) + "</p>";
+        html += "<p><a href=\"/control\">Robot Control</a></p>";
         html += "<p><a href=\"/update\">Firmware Update</a></p>";
         html += "</body></html>";
         request->send(200, "text/html", html);
+    });
+
+    // Teleop control page — served from flash (PROGMEM), no heap copy.
+    // Talks to /ws using the existing cmd/stop protocol; no protocol change.
+    server.on("/control", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->send_P(200, "text/html", CONTROL_HTML);
     });
 
     // HTTP OTA: upload form
